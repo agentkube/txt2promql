@@ -1,22 +1,64 @@
 package prometheus
 
 import (
-	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/spf13/viper"
 )
 
 type Client struct {
-	api v1.API
+	baseURL    string
+	httpClient *http.Client
 }
 
-func NewClient(url string) *Client {
-	cfg := api.Config{Address: url}
-	client, _ := api.NewClient(cfg)
-	return &Client{api: v1.NewAPI(client)}
+type QueryResult struct {
+	Status string `json:"status"`
+	Data   struct {
+		ResultType string `json:"resultType"`
+		Result     []struct {
+			Metric map[string]string `json:"metric"`
+			Value  []interface{}     `json:"value"`
+		} `json:"result"`
+	} `json:"data"`
 }
 
-func (c *Client) GetMetrics() []string {
-	// Fetch metrics via /api/v1/labels
+func NewClient() *Client {
+	return &Client{
+		baseURL: viper.GetString("prometheus.address"),
+		httpClient: &http.Client{
+			Timeout: viper.GetDuration("prometheus.timeout"),
+		},
+	}
+}
 
-	return []string{}
+func (c *Client) Query(ctx context.Context, query string) (*QueryResult, error) {
+	url := fmt.Sprintf("%s/api/v1/query", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	q := req.URL.Query()
+	q.Add("query", query)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result QueryResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	return &result, nil
 }
