@@ -5,7 +5,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/agentkube/txt2promql/internal/prometheus"
+	prometheus "github.com/agentkube/txt2promql/internal/prometheus"
 	"github.com/labstack/echo/v4"
 )
 
