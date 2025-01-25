@@ -1,0 +1,9 @@
+server:
+  port: "8086"
+  timeout: 30s
+
+logging:
+  level: "debug"
+
+prometheus:
+  address: "http://localhost:9090"
