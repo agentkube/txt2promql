@@ -29,7 +29,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          images: siddhantprateek/agentkube
+          images: agentkube/txt2promql
           tags: |
             type=raw,value=${{ github.event.inputs.tag || 'latest' }}
             type=raw,value=latest,enable=${{ github.event_name == 'push' }}
