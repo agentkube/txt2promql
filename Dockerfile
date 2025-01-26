@@ -11,4 +11,4 @@ WORKDIR /app
 COPY --from=builder /text2promql .
 COPY configs/default.yaml ./configs/
 EXPOSE 8080
-CMD ["./text2promql"]
+CMD ["./txt2promql"]
