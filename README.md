@@ -1,3 +1,5 @@
+![Agent Kube Thumbnail](https://github.com/user-attachments/assets/d50bad8f-fd3e-4869-9520-8c94b9954a48)
+
 # Txt2PromQL
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
