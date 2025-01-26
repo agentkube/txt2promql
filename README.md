@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Report Card](https://goreportcard.com/badge/github.com/agentkube/txt2promql)](https://goreportcard.com/report/github.com/agentkube/txt2promql)
-[![Build Status](https://github.com/agentkube/txt2promql/actions/workflows/go.yml/badge.svg)](https://github.com/agentkube/txt2promql/actions)
+[![Build Status](https://github.com/agentkube/txt2promql/actions/workflows/publish.yaml/badge.svg)](https://github.com/agentkube/txt2promql/actions)
 
 Convert natural language queries to PromQL with AI-powered understanding. Designed for monitoring democratization and observability workflows.
 

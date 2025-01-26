@@ -1,4 +1,4 @@
-name: Publish Docker images to Docker Hub
+name: Publish Docker images to Docker hub
 
 on:
   push:
@@ -19,12 +19,6 @@ jobs:
       - name: Checkout to the repo
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -33,7 +27,7 @@ jobs:
       
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: agentkube/txt2promql
           tags: |
@@ -41,11 +35,10 @@ jobs:
             type=raw,value=latest,enable=${{ github.event_name == 'push' }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           context: .
           file: ./Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
