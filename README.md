@@ -18,7 +18,6 @@ Convert natural language queries to PromQL with AI-powered understanding. Design
 - **Multi-Interface Support**:
   - REST API
   - Command Line Interface (CLI)
-  - Web Dashboard
 - **Prometheus Native**:
   - Auto schema discovery
   - Query validation
