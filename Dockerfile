@@ -9,6 +9,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /text2promql ./cmd/api/main.go
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /text2promql .
-COPY configs/default.yaml ./configs/
+COPY configs/config.yaml ./configs/
 EXPOSE 8080
 CMD ["./txt2promql"]
