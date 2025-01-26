@@ -1,3 +1,4 @@
+// internal/prometheus/schema.go
 package prometheus
 
 import (

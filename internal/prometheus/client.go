@@ -1,3 +1,4 @@
+// internal/prometheus/client.go
 package prometheus
 
 import (

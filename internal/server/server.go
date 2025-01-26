@@ -1,4 +1,3 @@
-// internal/server/server.go
 package server
 
 import (
@@ -6,11 +5,13 @@ import (
 	"time"
 
 	prometheus "github.com/agentkube/txt2promql/internal/prometheus"
+	"github.com/agentkube/txt2promql/internal/provider/openai"
 	handlers "github.com/agentkube/txt2promql/internal/server/handlers"
 	"github.com/labstack/echo/v4"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -40,14 +41,11 @@ var (
 	)
 )
 
-// MetricsMiddleware records request metrics
 func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		start := time.Now()
-
 		err := next(c)
 
-		// Record metrics
 		duration := time.Since(start).Seconds()
 		handler := c.Path()
 		status := "success"
@@ -69,16 +67,24 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) {
-	//  handlers
-	h := handlers.New(promClient)
-	// middlewares
+	// Initialize OpenAI client
+	openaiClient := openai.NewClient(
+		viper.GetString("openai.api_key"),
+		viper.GetString("openai.model"),
+		float32(viper.GetFloat64("openai.temperature")),
+	)
+
+	// Initialize handlers with both clients
+	h := handlers.New(promClient, openaiClient)
+
+	// Apply middleware
 	e.Use(MetricsMiddleware)
 
-	// Metrics
+	// Core routes
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	// Health check
 	e.GET("/health", h.HandleHealth)
 
+	// API routes
 	api := e.Group("/api/v1")
 	{
 		api.POST("/convert", h.HandleConvert)

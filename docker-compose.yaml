@@ -9,12 +9,14 @@ services:
     environment:
       - PROMETHEUS_URL=http://prometheus:9090
     depends_on:
-      - redis
       - prometheus
 
   prometheus:
     image: prom/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
     volumes:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prom_data:/prometheus
     ports:
       - "9090:9090"

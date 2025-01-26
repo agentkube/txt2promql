@@ -1,3 +1,4 @@
+// internal/prometheus/discovery.go
 package prometheus
 
 import (
