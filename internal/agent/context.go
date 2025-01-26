@@ -30,115 +30,131 @@ func NewContextExtractor(openaiClient *openai.OpenAIClient) *ContextExtractor {
 }
 
 func (ce *ContextExtractor) ExtractQueryContext(ctx context.Context, query string, metrics map[string]prometheus.MetricSchema) (*types.QueryContext, error) {
-	// Normalize query
-	normalizedQuery, err := ce.normalizer.Normalize(query)
-	if err != nil {
-		return nil, fmt.Errorf("query normalization failed: %w", err)
-	}
-
-	// Extract intent
-	intent, err := ce.intentParser.Parse(normalizedQuery)
-	if err != nil {
-		return nil, fmt.Errorf("intent parsing failed: %w", err)
-	}
-
-	// Extract entities
-	entities, err := ce.nerParser.ExtractEntities(normalizedQuery)
-	if err != nil {
-		return nil, fmt.Errorf("entity extraction failed: %w", err)
-	}
-
-	// Build system context with available metrics
-	metricNames := make([]string, 0, len(metrics))
+	// Build metric info maps
+	metricInfo := make(map[string]map[string]map[string]int)
 	services := make(map[string][]string)
 
+	// Process metrics and their labels
 	for name, schema := range metrics {
-		metricNames = append(metricNames, name)
 		if job, ok := schema.Labels["job"]; ok {
 			services[job] = append(services[job], name)
 		}
-	}
 
-	// Build metric context from entities
-	var selectedMetric string
-	labels := make(map[string]string)
-	timeRange := "5m" // default
-
-	for _, entity := range entities {
-		switch entity.Type {
-		case "metric":
-			if _, exists := metrics[entity.Value]; exists {
-				selectedMetric = entity.Value
+		metricInfo[name] = make(map[string]map[string]int)
+		for label, value := range schema.Labels {
+			if label == "__name__" {
+				continue
 			}
-		case "label":
-			parts := strings.Split(entity.Value, "=")
-			if len(parts) == 2 {
-				labels[parts[0]] = parts[1]
+			if _, ok := metricInfo[name][label]; !ok {
+				metricInfo[name][label] = make(map[string]int)
 			}
-		case "time":
-			timeRange = entity.Value
+			metricInfo[name][label][value]++
 		}
 	}
 
-	// If no metric found from NER, use OpenAI
-	if selectedMetric == "" {
-		systemContext := fmt.Sprintln(`You are a PromQL query builder. Return only a valid JSON object.
-Available metrics and their labels:
-prometheus_http_requests_total with labels: code=["200","302","400","404"], handler=[paths]
+	// Print services and metrics
+	fmt.Printf("\nDiscovered Services and Metrics:\n")
+	for service, serviceMetrics := range services {
+		fmt.Printf("Service %s metrics:\n", service)
+		for _, metric := range serviceMetrics {
+			fmt.Printf("  - %s\n", metric)
+		}
+	}
 
-Return JSON with exact fields:
+	// Format metric descriptions
+	var metricsDescription []string
+	for metricName, labels := range metricInfo {
+		labelInfo := make([]string, 0)
+		for label, values := range labels {
+			valueList := make([]string, 0)
+			for value := range values {
+				valueList = append(valueList, value)
+			}
+			labelInfo = append(labelInfo, fmt.Sprintf("%s=[%s]", label, strings.Join(valueList, ", ")))
+		}
+		metricStr := metricName
+		if len(labelInfo) > 0 {
+			metricStr += fmt.Sprintf(" with labels: %s", strings.Join(labelInfo, ", "))
+		}
+		metricsDescription = append(metricsDescription, metricStr)
+	}
+
+	fmt.Printf("\nMetric Details:\n%s\n", strings.Join(metricsDescription, "\n"))
+
+	// Build system context with examples
+	systemContext := fmt.Sprintf(`You are a PromQL query builder.
+
+Available metrics and their labels:
+%s
+
+Valid PromQL examples:
+- Simple sum: sum(prometheus_http_response_size_bytes_sum)
+- Rate with time: rate(prometheus_http_requests_total[5m])
+- Filtered sum: sum(prometheus_http_requests_total{code="200"})
+
+Return ONLY a JSON object with these fields:
 {
-"metric": "prometheus_http_requests_total",
-"labels": {"code": "400"},
-"timeRange": "5m",
-"aggregation": "rate"
+  "metric": "exact_metric_name_from_list",
+  "labels": {"label": "value"},
+  "timeRange": "5m",      // Omit for sum aggregation
+  "aggregation": "sum"    // sum/rate/avg/count/increase
 }
 
-IMPORTANT: ONLY return valid JSON, no explanation.`, strings.Join(metricNames, "\n"))
+Rules:
+1. Exact metric names only
+2. Only use existing label values
+3. Omit timeRange for sum operations
+4. Use appropriate aggregation:
+   - sum: for totals and sizes
+   - rate: for per-second metrics
+   - avg: for averages
+   - count: for occurrences
+   - increase: for total increases`, strings.Join(metricsDescription, "\n"))
 
-		prompt := systemContext + "\n\nQuery: " + normalizedQuery
-		result, err := ce.openaiClient.Complete(ctx, prompt)
-		if err != nil {
-			return nil, fmt.Errorf("OpenAI error: %w", err)
-		}
+	// Process query
+	prompt := systemContext + "\n\nQuery: " + query
+	fmt.Printf("\nProcessing query: %s\n", query)
 
-		var extracted struct {
-			Metric      string            `json:"metric"`
-			Labels      map[string]string `json:"labels"`
-			TimeRange   string            `json:"timeRange"`
-			Aggregation string            `json:"aggregation"`
-		}
-
-		jsonStart := strings.Index(result, "{")
-		jsonEnd := strings.LastIndex(result, "}")
-		if jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart {
-			result = result[jsonStart : jsonEnd+1]
-		}
-
-		if err := json.Unmarshal([]byte(result), &extracted); err != nil {
-			return nil, fmt.Errorf("invalid response format: %w", err)
-		}
-
-		selectedMetric = extracted.Metric
-		// Merge OpenAI labels with NER labels
-		for k, v := range extracted.Labels {
-			if _, exists := labels[k]; !exists {
-				labels[k] = v
-			}
-		}
-		timeRange = extracted.TimeRange
+	result, err := ce.openaiClient.Complete(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("OpenAI error: %w", err)
 	}
 
-	duration, err := time.ParseDuration(timeRange)
-	if err != nil {
-		return nil, fmt.Errorf("invalid time range format: %w", err)
+	fmt.Printf("\nAgent Response:\n%s\n", result)
+
+	// Extract JSON from response
+	jsonStart := strings.Index(result, "{")
+	jsonEnd := strings.LastIndex(result, "}")
+	if jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart {
+		result = result[jsonStart : jsonEnd+1]
+	}
+
+	var extracted struct {
+		Metric      string            `json:"metric"`
+		Labels      map[string]string `json:"labels"`
+		TimeRange   string            `json:"timeRange"`
+		Aggregation string            `json:"aggregation"`
+	}
+
+	if err := json.Unmarshal([]byte(result), &extracted); err != nil {
+		return nil, fmt.Errorf("invalid response format: %w", err)
+	}
+
+	// Parse timeRange if present
+	var timeRange types.TimeRange
+	if extracted.TimeRange != "" {
+		duration, err := time.ParseDuration(extracted.TimeRange)
+		if err != nil {
+			return nil, fmt.Errorf("invalid time range format: %w", err)
+		}
+		timeRange.Duration = duration
 	}
 
 	return &types.QueryContext{
 		Query:       query,
-		MainMetric:  selectedMetric,
-		Labels:      labels,
-		TimeRange:   types.TimeRange{Duration: duration},
-		Aggregation: intent.Operation,
+		MainMetric:  extracted.Metric,
+		Labels:      extracted.Labels,
+		TimeRange:   timeRange,
+		Aggregation: extracted.Aggregation,
 	}, nil
 }
