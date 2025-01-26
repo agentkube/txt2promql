@@ -97,7 +97,7 @@ Return ONLY a JSON object with these fields:
   "metric": "exact_metric_name_from_list",
   "labels": {"label": "value"},
   "timeRange": "5m",      // Omit for sum aggregation
-  "aggregation": "sum"    // sum/rate/avg/count/increase
+  "aggregation": ""    // sum/rate/avg/count/increase - Leave empty if no aggregation needed
 }
 
 Rules:
