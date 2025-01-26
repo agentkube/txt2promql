@@ -1,4 +1,4 @@
-name: Publish Docker images to Docker hub
+name: Publish Image
 
 on:
   push:
