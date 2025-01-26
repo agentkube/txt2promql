@@ -6,12 +6,13 @@ prometheus:
   address: http://localhost:9090
   timeout: 30s
 
-# ai:
-#   model: gpt-4o-mini
-#   temperature: 0.3
+openai:
+  api_key: "sk-proj-xxxxxxxxxxxx"
+  model: "gpt-4o-mini"
+  temperature: 0.7
 
 knowledge_graph:
-  schema_path: "./schemas/prometheus.yaml"
+  schema_path: "./configs/prometheus.yaml"
   auto_discover: true
 
 semantic_memory:
