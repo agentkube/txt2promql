@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -66,13 +67,18 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) {
+func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) error {
+	// Load AI configuration
+	var aiConfig openai.Config
+	if err := viper.UnmarshalKey("ai", &aiConfig); err != nil {
+		return fmt.Errorf("loading AI configuration: %w", err)
+	}
+
 	// Initialize OpenAI client
-	openaiClient := openai.NewClient(
-		viper.GetString("openai.api_key"),
-		viper.GetString("openai.model"),
-		float32(viper.GetFloat64("openai.temperature")),
-	)
+	openaiClient, err := openai.NewClient(&aiConfig)
+	if err != nil {
+		return fmt.Errorf("initializing OpenAI client: %w", err)
+	}
 
 	// Initialize handlers with both clients
 	h := handlers.New(promClient, openaiClient)
@@ -91,4 +97,6 @@ func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) {
 		api.POST("/validate", h.HandleValidate)
 		api.GET("/metrics", h.HandleListMetrics)
 	}
+
+	return nil
 }
