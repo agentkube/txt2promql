@@ -1,4 +1,3 @@
-// internal/agent/context.go
 package agent
 
 import (

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/agentkube/txt2promql/internal/agent"
-	"github.com/agentkube/txt2promql/internal/core/knowledgegraph"
 	"github.com/agentkube/txt2promql/internal/prometheus"
 	"github.com/agentkube/txt2promql/internal/provider/openai"
 	"github.com/labstack/echo/v4"
@@ -16,7 +15,6 @@ import (
 
 type Handlers struct {
 	promClient       *prometheus.Client
-	kgClient         *knowledgegraph.Client
 	contextExtractor *agent.ContextExtractor
 	explainer        *agent.Explainer
 	queryBuilder     *agent.QueryBuilder
@@ -24,10 +22,9 @@ type Handlers struct {
 	lastCacheTime    time.Time
 }
 
-func New(promClient *prometheus.Client, openaiClient *openai.OpenAIClient, kgClient *knowledgegraph.Client) *Handlers {
+func New(promClient *prometheus.Client, openaiClient *openai.OpenAIClient) *Handlers {
 	return &Handlers{
 		promClient:       promClient,
-		kgClient:         kgClient,
 		contextExtractor: agent.NewContextExtractor(openaiClient),
 		explainer:        agent.NewExplainer(openaiClient),
 		queryBuilder:     agent.NewQueryBuilder(),
@@ -40,12 +37,9 @@ type ConvertRequest struct {
 }
 
 type ConvertResponse struct {
-	PromQL             string                      `json:"promql"`
-	Explanation        string                      `json:"explanation,omitempty"`
-	Warnings           []string                    `json:"warnings,omitempty"`
-	SimilarMetrics     []knowledgegraph.MetricInfo `json:"similar_metrics,omitempty"`
-	PatternExplanation string                      `json:"pattern_explanation,omitempty"`
-	NavigationPath     []string                    `json:"navigation_path,omitempty"`
+	PromQL      string   `json:"promql"`
+	Explanation string   `json:"explanation,omitempty"`
+	Warnings    []string `json:"warnings,omitempty"`
 }
 
 func (h *Handlers) HandleConvert(c echo.Context) error {

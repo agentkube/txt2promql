@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/agentkube/txt2promql/internal/core/knowledgegraph"
 	prometheus "github.com/agentkube/txt2promql/internal/prometheus"
 	"github.com/agentkube/txt2promql/internal/provider/openai"
 	handlers "github.com/agentkube/txt2promql/internal/server/handlers"
@@ -69,7 +68,7 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client, kgClient *knowledgegraph.Client) error {
+func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) error {
 	// Load AI configuration
 	var aiConfig openai.Config
 	if err := viper.UnmarshalKey("ai", &aiConfig); err != nil {
@@ -82,7 +81,7 @@ func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client, kgClient *kno
 		return fmt.Errorf("initializing OpenAI client: %w", err)
 	}
 
-	h := handlers.New(promClient, openaiClient, kgClient)
+	h := handlers.New(promClient, openaiClient)
 	// middleware
 	e.Use(MetricsMiddleware)
 
