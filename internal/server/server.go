@@ -1,3 +1,4 @@
+// internal/server/server.go
 package server
 
 import (
@@ -5,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/agentkube/txt2promql/internal/core/knowledgegraph"
 	prometheus "github.com/agentkube/txt2promql/internal/prometheus"
 	"github.com/agentkube/txt2promql/internal/provider/openai"
 	handlers "github.com/agentkube/txt2promql/internal/server/handlers"
@@ -67,7 +69,7 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) error {
+func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client, kgClient *knowledgegraph.Client) error {
 	// Load AI configuration
 	var aiConfig openai.Config
 	if err := viper.UnmarshalKey("ai", &aiConfig); err != nil {
@@ -80,23 +82,48 @@ func RegisterHandlers(e *echo.Echo, promClient *prometheus.Client) error {
 		return fmt.Errorf("initializing OpenAI client: %w", err)
 	}
 
-	// Initialize handlers with both clients
-	h := handlers.New(promClient, openaiClient)
-
-	// Apply middleware
+	h := handlers.New(promClient, openaiClient, kgClient)
+	// middleware
 	e.Use(MetricsMiddleware)
 
-	// Core routes
+	// routes
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/health", h.HandleHealth)
 
 	// API routes
 	api := e.Group("/api/v1")
 	{
-		api.POST("/convert", h.HandleConvert)
+		api.POST("/convert", h.HandleConvert) //TODO high chances of request failure when same statement flows in.
 		api.POST("/validate", h.HandleValidate)
+		api.POST("/execute", h.HandleExecute)
 		api.GET("/metrics", h.HandleListMetrics)
 	}
 
 	return nil
 }
+
+//TODO high chances of request failure when same statement flows in.
+// {
+//   "message": "Failed to process query"
+// }
+// {
+//   "message": "Invalid PromQL query: invalid query: unexpected status code: 400"
+// }
+
+// Agent Response:
+// ```json
+// [
+//   {
+//     "metric": "prometheus_http_request_duration_seconds_sum",
+//     "labels": {"handler": "/api/v1/query_range"},
+//     "timeRange": "5m",
+//     "aggregation": "avg"
+//   },
+//   {
+//     "metric": "prometheus_http_request_duration_seconds_count",
+//     "labels": {"handler": "/api/v1/query_range"},
+//     "timeRange": "5m",
+//     "aggregation": "avg"
+//   }
+// ]
+// ```
