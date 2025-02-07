@@ -8,6 +8,11 @@
 
 Convert natural language queries to PromQL with AI-powered understanding. Designed for monitoring democratization and observability workflows.
 
+| 🚧 **Project Status: Beta** 🚧 |  
+|---------------------------------------------|  
+| :loudspeaker: **text2promql is actively evolving with community contributions. While maintainers provide guidance, the project relies on user feedback and improvements.** Feel free to [open a discussion](#) for questions or suggestions. <br/><br/>⚠ **text2promql is currently in beta.** It is still under active development and testing, meaning it may have incomplete features, occasional bugs, or missing documentation. We do not yet recommend it for production use and provide it as-is without official support. <br/><br/>:bulb: If you require a production-ready solution, consider exploring commercial alternatives or contributing to enhance the project's stability. |
+
+
 <!-- **Demo** (insert animated GIF here showing CLI and web interface) -->
 
 ## Features
