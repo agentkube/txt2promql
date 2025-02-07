@@ -49,13 +49,8 @@ type Header struct {
 
 // knowledge graph settings
 type KGConfig struct {
-	SchemaPath    string `mapstructure:"schema_path"`
-	AutoDiscover  bool   `mapstructure:"auto_discover"`
-	GraphEnabled  bool   `mapstructure:"enabled"`
-	GraphURI      string `mapstructure:"graph_uri"`
-	GraphUser     string `mapstructure:"graph_user"`
-	GraphPassword string `mapstructure:"graph_password"`
-	GraphDatabase string `mapstructure:"graph_database"`
+	SchemaPath   string `mapstructure:"schema_path"`
+	AutoDiscover bool   `mapstructure:"auto_discover"`
 }
 
 // SemanticConfig holds semantic memory settings
@@ -127,8 +122,6 @@ func setDefaults() {
 	viper.SetDefault("ai.top_p", 1.0)
 
 	// Knowledge Graph defaults
-	viper.SetDefault("knowledge_graph.enabled", false)
-	viper.SetDefault("knowledge_graph.auto_discover", true)
 	viper.SetDefault("knowledge_graph.schema_path", "./schemas/prometheus.yaml")
 	viper.SetDefault("knowledge_graph.graph_database", "neo4j")
 
@@ -156,17 +149,6 @@ func loadEnvVariables() {
 		viper.Set("ai.model", model)
 	}
 
-	if uri := os.Getenv("NEO4J_URI"); uri != "" {
-		viper.Set("knowledge_graph.graph_uri", uri)
-	}
-
-	if user := os.Getenv("NEO4J_USER"); user != "" {
-		viper.Set("knowledge_graph.graph_user", user)
-	}
-
-	if pass := os.Getenv("NEO4J_PASSWORD"); pass != "" {
-		viper.Set("knowledge_graph.graph_password", pass)
-	}
 }
 
 // validateConfig performs validation on the configuration
