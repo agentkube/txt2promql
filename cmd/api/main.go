@@ -45,8 +45,10 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// Register handlers
-	server.RegisterHandlers(e, promClient)
-
+	if err := server.RegisterHandlers(e, promClient); err != nil {
+		fmt.Printf("Error registering handlers: %v\n", err)
+		os.Exit(1)
+	}
 	// Start server
 	e.Logger.Fatal(e.Start(":" + viper.GetString("server.port")))
 }
