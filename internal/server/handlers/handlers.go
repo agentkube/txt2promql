@@ -8,27 +8,30 @@ import (
 	"time"
 
 	"github.com/agentkube/txt2promql/internal/agent"
+	kg "github.com/agentkube/txt2promql/internal/core/knowledgegraph"
 	"github.com/agentkube/txt2promql/internal/prometheus"
 	"github.com/agentkube/txt2promql/internal/provider/openai"
 	"github.com/labstack/echo/v4"
 )
 
 type Handlers struct {
-	promClient       *prometheus.Client
-	contextExtractor *agent.ContextExtractor
-	explainer        *agent.Explainer
-	queryBuilder     *agent.QueryBuilder
-	metricCache      map[string]prometheus.MetricSchema
-	lastCacheTime    time.Time
+	promClient        *prometheus.Client
+	contextExtractor  *agent.ContextExtractor
+	explainer         *agent.Explainer
+	queryBuilder      *agent.QueryBuilder
+	metricCache       map[string]prometheus.MetricSchema
+	lastCacheTime     time.Time
+	knowledgePatterns *kg.KnowledgePatterns
 }
 
 func New(promClient *prometheus.Client, openaiClient *openai.OpenAIClient) *Handlers {
 	return &Handlers{
-		promClient:       promClient,
-		contextExtractor: agent.NewContextExtractor(openaiClient),
-		explainer:        agent.NewExplainer(openaiClient),
-		queryBuilder:     agent.NewQueryBuilder(),
-		metricCache:      make(map[string]prometheus.MetricSchema),
+		promClient:        promClient,
+		contextExtractor:  agent.NewContextExtractor(openaiClient),
+		explainer:         agent.NewExplainer(openaiClient),
+		queryBuilder:      agent.NewQueryBuilder(),
+		metricCache:       make(map[string]prometheus.MetricSchema),
+		knowledgePatterns: kg.NewKnowledgePatterns(),
 	}
 }
 
@@ -37,9 +40,9 @@ type ConvertRequest struct {
 }
 
 type ConvertResponse struct {
-	PromQL      string   `json:"promql"`
-	Explanation string   `json:"explanation,omitempty"`
-	Warnings    []string `json:"warnings,omitempty"`
+	PromQL         string          `json:"promql"`
+	Explanation    string          `json:"explanation,omitempty"`
+	SimilarMetrics []kg.MetricInfo `json:"similar_metrics,omitempty"`
 }
 
 func (h *Handlers) HandleConvert(c echo.Context) error {
@@ -53,36 +56,38 @@ func (h *Handlers) HandleConvert(c echo.Context) error {
 	}
 
 	if err := h.refreshMetricCache(c.Request().Context()); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to refresh metrics")
+		return c.JSON(http.StatusOK, ConvertResponse{
+			Explanation: "Failed to refresh metrics, response may be inaccurate",
+		})
 	}
 
 	queryCtx, err := h.contextExtractor.ExtractQueryContext(c.Request().Context(), req.Query, h.metricCache)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to process query")
+		return c.JSON(http.StatusOK, ConvertResponse{
+			Explanation: "Failed to extract query context",
+		})
 	}
 
-	promQL, warnings := h.queryBuilder.Build(queryCtx)
+	promQL, _ := h.queryBuilder.Build(queryCtx)
 	if promQL == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Could not generate valid PromQL")
-	}
-
-	validationResult, err := h.promClient.ValidateQuery(c.Request().Context(), promQL)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Query validation error: %v", err))
-	}
-	if !validationResult.Valid {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid PromQL query: %s", validationResult.Error))
+		return c.JSON(http.StatusOK, ConvertResponse{
+			Explanation: "Unable to generate PromQL query",
+		})
 	}
 
 	explanation := h.explainer.GenerateExplanation(c.Request().Context(), queryCtx, promQL)
+	similarMetrics := h.knowledgePatterns.FindSimilarMetrics(queryCtx.MainMetric, h.metricCache)
 
-	resp := ConvertResponse{
-		PromQL:      promQL,
-		Explanation: explanation,
-		Warnings:    warnings,
+	validationResult, err := h.promClient.ValidateQuery(c.Request().Context(), promQL)
+	if err != nil || !validationResult.Valid {
+		explanation += " (Generated PromQL query may not be accurate)"
 	}
 
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, ConvertResponse{
+		PromQL:         promQL,
+		Explanation:    explanation,
+		SimilarMetrics: similarMetrics,
+	})
 }
 
 func (h *Handlers) refreshMetricCache(ctx context.Context) error {

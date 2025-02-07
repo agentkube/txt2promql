@@ -11,6 +11,7 @@ import (
 	prometheus "github.com/agentkube/txt2promql/internal/prometheus"
 	openai "github.com/agentkube/txt2promql/internal/provider/openai"
 	types "github.com/agentkube/txt2promql/internal/types"
+	"github.com/agentkube/txt2promql/pkg/ai"
 )
 
 type ContextExtractor struct {
@@ -82,34 +83,7 @@ func (ce *ContextExtractor) ExtractQueryContext(ctx context.Context, query strin
 	fmt.Printf("\nMetric Details:\n%s\n", strings.Join(metricsDescription, "\n"))
 
 	// Build system context with examples
-	systemContext := fmt.Sprintf(`You are a PromQL query builder.
-
-Available metrics and their labels:
-%s
-
-Valid PromQL examples:
-- Simple sum: sum(prometheus_http_response_size_bytes_sum)
-- Rate with time: rate(prometheus_http_requests_total[5m])
-- Filtered sum: sum(prometheus_http_requests_total{code="200"})
-
-Return ONLY a JSON object with these fields:
-{
-  "metric": "exact_metric_name_from_list",
-  "labels": {"label": "value"},
-  "timeRange": "5m",      // Omit for sum aggregation
-  "aggregation": ""    // sum/rate/avg/count/increase - Leave empty if no aggregation needed
-}
-
-Rules:
-1. Exact metric names only
-2. Only use existing label values
-3. Omit timeRange for sum operations
-4. Use appropriate aggregation:
-   - sum: for totals and sizes
-   - rate: for per-second metrics
-   - avg: for averages
-   - count: for occurrences
-   - increase: for total increases`, strings.Join(metricsDescription, "\n"))
+	systemContext := fmt.Sprintf(ai.PromptMap["PromQLBuilder"], strings.Join(metricsDescription, "\n"))
 
 	// Process query
 	prompt := systemContext + "\n\nQuery: " + query

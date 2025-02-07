@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/agentkube/txt2promql/internal/types"
+	"github.com/agentkube/txt2promql/pkg/ai"
 )
 
 type Processor struct {
@@ -20,15 +21,7 @@ func NewProcessor(openai_client *OpenAIClient) *Processor {
 func (p *Processor) ExtractContext(ctx context.Context, query string) (*types.QueryContext, error) {
 	fmt.Println("ExtractContext query", query)
 
-	prompt := fmt.Sprintf(`
-Extract PromQL query components from: "%s"
-Return JSON with:
-- metric: main metric name
-- labels: key-value pairs
-- timeRange: duration string
-- aggregation: aggregation function
-`, query)
-
+	prompt := fmt.Sprintf(ai.PromptMap["PromQLContextExtractor"], query)
 	fmt.Println("prompt", prompt)
 
 	result, err := p.openai_client.Complete(ctx, prompt)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/agentkube/txt2promql/internal/provider/openai"
 	"github.com/agentkube/txt2promql/internal/types"
+	"github.com/agentkube/txt2promql/pkg/ai"
 )
 
 type Explainer struct {
@@ -20,14 +21,7 @@ func NewExplainer(openaiClient *openai.OpenAIClient) *Explainer {
 }
 
 func (e *Explainer) GenerateExplanation(ctx context.Context, queryCtx *types.QueryContext, promQL string) string {
-	prompt := fmt.Sprintf(`Explain this PromQL query in natural language:
-Query: %s
-Original question: %s
-Metric: %s
-Aggregation: %s
-Labels: %v
-
-Return a concise explanation in one sentence.`,
+	prompt := fmt.Sprintf(ai.PromptMap["PromQLExplanation"],
 		promQL, queryCtx.Query, queryCtx.MainMetric, queryCtx.Aggregation, queryCtx.Labels)
 
 	result, err := e.openaiClient.Complete(ctx, prompt)
